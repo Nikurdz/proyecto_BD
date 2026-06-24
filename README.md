@@ -1,6 +1,6 @@
 # 🍃 Naturart Foods
 
-![Naturart Foods](https://via.placeholder.com/1200x300.png?text=Naturart+Foods+-+E-commerce+%26+Data+Warehouse)
+![Naturart Foods](https://www.puce.edu.ec/wp-content/uploads/2023/09/logo-puce-1.png)
 
 Naturart Foods es una plataforma integral de E-commerce y Análisis de Datos (Data Warehouse) diseñada para la gestión y venta de productos naturales y orgánicos. El proyecto garantiza altos estándares de seguridad y escalabilidad, delegando la lógica de negocio y las transacciones críticas al motor de base de datos Oracle a través de la arquitectura **Thick Database**.
 
