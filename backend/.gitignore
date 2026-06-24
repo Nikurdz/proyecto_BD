@@ -1,0 +1,43 @@
+# Variables de Entorno y Secretos
+.env
+
+# Dependencias de Node.js
+node_modules/
+package-lock.json
+
+# Archivos de Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+logs/
+*.log
+
+# Cargas y Archivos Temporales
+uploads/
+tmp/
+temp/
+
+# Sistema Operativo y Editores
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Archivos de Cobertura y Testing
+coverage/
+.nyc_output/
+
+# Respaldos Locales de Base de Datos
+*.dmp
+*.sql.bak
+*.db
+*.sqlite
+
+# Artefactos de Compilación
+dist/
+build/

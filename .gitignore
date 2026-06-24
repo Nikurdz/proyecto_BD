@@ -1,0 +1,42 @@
+# Node / Dependency Directories
+node_modules/
+**/node_modules/
+
+# Production Build Directories
+dist/
+**/dist/
+build/
+**/build/
+
+# Local Environment Config Files
+.env
+.env.local
+.env.*.local
+**/.env
+**/.env.local
+**/.env.*.local
+
+# Logs and Debug Files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+*.log
+**/*.log
+
+# IDEs and Editors Configs
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS metadata
+.DS_Store
+Thumbs.db
+
+# Uploaded images
+backend/uploads/
