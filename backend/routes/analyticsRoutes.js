@@ -1,10 +1,11 @@
 import express from 'express';
-import { obtenerReporteVentas } from '../controllers/analyticsController.js';
-import { verificarToken } from '../middlewares/authMiddleware.js'; // Asumiendo que el admin debe estar autenticado
+import { obtenerReporteVentas, sincronizarDW } from '../controllers/analyticsController.js';
+import { verificarToken, verificarAdmin } from '../middlewares/authMiddleware.js';
 
 const router = express.Router();
 
-// Ruta protegida para el panel de administración
+// Rutas protegidas
 router.get('/ventas', verificarToken, obtenerReporteVentas);
+router.post('/sync', verificarToken, verificarAdmin, sincronizarDW);
 
 export default router;

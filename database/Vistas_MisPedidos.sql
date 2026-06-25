@@ -1,0 +1,17 @@
+-- ====================================================================
+-- VISTA PARA EL HISTORIAL DE COMPRAS (PUENTE ENTRE FACTURA Y USUARIO_A)
+-- ====================================================================
+CREATE OR REPLACE VIEW vw_historial_mis_pedidos AS
+SELECT 
+    F.FAC_NUMERO, 
+    F.FAC_FECHA, 
+    F.FAC_ESTADO, 
+    U.URA_USUARIO AS IDENTIFICADOR_SESION,
+    D.PRD_CODIGO, 
+    D.DFA_CANTIDAD, 
+    D.DFA_PRECIO_UNI,
+    P.PRD_NOMBRE
+FROM FACTURA F
+JOIN USUARIO_A U ON F.CLI_CI_RUC = U.CLI_CI_RUC
+LEFT JOIN DETALLE_FACTURA D ON F.FAC_NUMERO = D.FAC_NUMERO
+LEFT JOIN PRODUCTO P ON D.PRD_CODIGO = P.PRD_CODIGO;

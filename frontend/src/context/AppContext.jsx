@@ -175,56 +175,138 @@ export function AppProvider({ children }) {
 
 
   // --- CART STATE ---
-  const [cart, setCart] = useState(() => {
-    const localCart = localStorage.getItem('cart');
-    return localCart ? JSON.parse(localCart) : [];
-  });
+  const [cart, setCart] = useState([]);
+  const [isCartLoading, setIsCartLoading] = useState(false);
 
-  useEffect(() => {
-    localStorage.setItem('cart', JSON.stringify(cart));
-  }, [cart]);
-
-  const addToCart = (product, qty = 1) => {
-    let success = false;
-    setCart((prevCart) => {
-      const existingItem = prevCart.find((item) => item.id === product.id);
-      if (existingItem) {
-        const newQty = existingItem.cantidad + qty;
-        if (newQty > product.stock) {
-          showNotification(`No puedes agregar más de ${product.stock} unidades de este producto.`, 'error');
-          return prevCart;
+  const fetchCarrito = async () => {
+    if (!token) {
+      setCart([]);
+      return;
+    }
+    setIsCartLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/carrito`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) {
+          setCart(data.data || []);
         }
-        success = true;
-        return prevCart.map((item) =>
-          item.id === product.id ? { ...item, cantidad: newQty } : item
-        );
       }
-      success = true;
-      return [...prevCart, { ...product, cantidad: qty }];
-    });
-    if (success) {
-      showNotification(`¡${product.titulo || product.nombre} agregado al carrito!`, 'success');
+    } catch (err) {
+      console.error('Error al obtener carrito:', err);
+    } finally {
+      setIsCartLoading(false);
     }
   };
 
-  const removeFromCart = (productId) => {
-    setCart((prevCart) => prevCart.filter((item) => item.id !== productId));
+  useEffect(() => {
+    fetchCarrito();
+  }, [token, user]);
+
+  const addToCart = async (product, qty = 1) => {
+    if (!token) {
+      showNotification('Debes iniciar sesión para agregar al carrito', 'error');
+      return;
+    }
+    
+    const parsedQty = parseInt(qty, 10);
+    const maxStock = parseInt(product.stock, 10);
+
+    // Validar localmente stock maximo antes de enviar
+    const existingItem = cart.find((item) => item.id === product.id);
+    const newQty = existingItem ? parseInt(existingItem.cantidad, 10) + parsedQty : parsedQty;
+    
+    if (newQty > maxStock) {
+       showNotification(`No puedes agregar más de ${maxStock} unidades.`, 'error');
+       return;
+    }
+
+    // Actualización optimista de UI
+    const previousCart = [...cart];
+    if (existingItem) {
+      setCart(cart.map(item => item.id === product.id ? { ...item, cantidad: newQty } : item));
+    } else {
+      setCart([...cart, { ...product, cantidad: parsedQty }]);
+    }
+
+    try {
+      const res = await fetch(`${API_URL}/carrito`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ productoId: product.id, cantidad: newQty })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.detalle || data.error || 'Error al agregar al carrito');
+      }
+      showNotification(`¡${product.titulo || product.nombre} agregado al carrito!`, 'success');
+      // Recargar desde DB para sincronizar exactamente con Oracle
+      fetchCarrito();
+    } catch (err) {
+      console.error('Error addToCart:', err);
+      showNotification(err.message, 'error');
+      setCart(previousCart); // Rollback
+    }
   };
 
-  const updateQuantity = (productId, qty, maxStock) => {
-    if (qty <= 0) {
+  const removeFromCart = async (productId) => {
+    if (!token) return;
+    const previousCart = [...cart];
+    setCart(cart.filter((item) => item.id !== productId));
+    
+    try {
+      const res = await fetch(`${API_URL}/carrito/${productId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detalle || data.error || 'Error al eliminar');
+      fetchCarrito();
+    } catch (err) {
+      showNotification(err.message, 'error');
+      setCart(previousCart); // Rollback
+    }
+  };
+
+  const updateQuantity = async (productId, qty, maxStock) => {
+    const parsedQty = parseInt(qty, 10);
+    const parsedMaxStock = parseInt(maxStock, 10);
+
+    if (isNaN(parsedQty) || parsedQty <= 0) {
       removeFromCart(productId);
       return;
     }
-    if (qty > maxStock) {
-      showNotification(`Lo sentimos, el stock disponible es de ${maxStock} unidades.`, 'error');
+    if (parsedQty > parsedMaxStock) {
+      showNotification(`El stock máximo es de ${parsedMaxStock} unidades.`, 'error');
       return;
     }
-    setCart((prevCart) =>
-      prevCart.map((item) =>
-        item.id === productId ? { ...item, cantidad: qty } : item
-      )
-    );
+    
+    // Guardar el estado anterior para posible rollback
+    const previousCart = [...cart];
+    // Actualización optimista
+    setCart(cart.map(item => item.id === productId ? { ...item, cantidad: parsedQty } : item));
+
+    try {
+      const res = await fetch(`${API_URL}/carrito`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ productoId: productId, cantidad: parsedQty })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detalle || data.error || 'Error al actualizar cantidad');
+      fetchCarrito();
+    } catch (err) {
+      showNotification(err.message, 'error');
+      setCart(previousCart); // Rollback
+    }
   };
 
   const clearCart = () => {
@@ -239,31 +321,28 @@ export function AppProvider({ children }) {
     if (!token) throw new Error('Debes iniciar sesión para realizar el checkout.');
     if (cart.length === 0) throw new Error('Tu carrito está vacío.');
 
-    const items = cart.map((item) => ({
-      id: item.id,
-      cantidad: item.cantidad
-    }));
-
+    // NO enviamos los productos (Thick Database)
     const res = await fetch(`${API_URL}/pedidos/checkout`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`
       },
-      body: JSON.stringify({ items, direccionEnvio, cedula, nombreFacturacion, telefono })
+      body: JSON.stringify({ direccionEnvio, cedula, nombreFacturacion, telefono })
     });
     
     const data = await res.json();
-    if (!res.ok) throw new Error(data.detalle || data.error || 'Error al procesar el pedido.');
+    if (!res.ok) throw new Error(data.detalle || data.error || 'Error al procesar el pedido en Oracle.');
     
     clearCart();
+    fetchCarrito();
     return data;
   };
 
   return (
     <NotificationContext.Provider value={{ notification, showNotification }}>
       <AuthContext.Provider value={{ user, token, authLoading, login, register, logout, favorites, toggleFavorite }}>
-        <CartContext.Provider value={{ cart, addToCart, removeFromCart, updateQuantity, clearCart, getCartTotal, checkout }}>
+        <CartContext.Provider value={{ cart, isCartLoading, addToCart, removeFromCart, updateQuantity, clearCart, getCartTotal, checkout, fetchCarrito }}>
           {children}
         </CartContext.Provider>
       </AuthContext.Provider>

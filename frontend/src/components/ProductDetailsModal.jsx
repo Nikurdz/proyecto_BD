@@ -113,10 +113,17 @@ export default function ProductDetailsModal({ producto, onClose }) {
             </div>
 
             {/* Estado del Stock */}
-            <p className="text-xs font-bold text-emerald-400 mb-5 flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-555 animate-ping"></span>
-              ✓ Disponible en bodega ({producto.stock} unidades listas para envío)
-            </p>
+            {producto.stock > 0 ? (
+              <p className="text-xs font-bold text-emerald-400 mb-5 flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+                ✓ Disponible en bodega ({producto.stock} unidades listas para envío)
+              </p>
+            ) : (
+              <p className="text-xs font-bold text-red-400 mb-5 flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-red-500"></span>
+                ✗ Fuera de stock (Agotado)
+              </p>
+            )}
 
             {/* Descripción Detallada Completa */}
             <div className="mt-4">
@@ -139,10 +146,11 @@ export default function ProductDetailsModal({ producto, onClose }) {
                 });
                 onClose();
               }}
-              className="w-full bg-emerald-600 hover:bg-emerald-500 active:scale-98 text-white font-extrabold py-3.5 px-6 rounded-2xl flex items-center justify-center space-x-2 transition-all shadow-md hover:shadow-emerald-950/40 cursor-pointer border-none text-sm uppercase tracking-wider"
+              disabled={producto.stock <= 0}
+              className={`w-full font-extrabold py-3.5 px-6 rounded-2xl flex items-center justify-center space-x-2 transition-all shadow-md text-sm uppercase tracking-wider border-none ${producto.stock > 0 ? 'bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white hover:shadow-emerald-950/40 cursor-pointer' : 'bg-stone-800 text-stone-500 cursor-not-allowed'}`}
             >
               <ShoppingCart className="w-5 h-5" />
-              <span>Agregar al carrito</span>
+              <span>{producto.stock > 0 ? 'Agregar al carrito' : 'Agotado'}</span>
             </button>
           </div>
         </div>

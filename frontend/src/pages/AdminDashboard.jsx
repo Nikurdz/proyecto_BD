@@ -522,10 +522,10 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      {/* Contenido Principal según el Tab activo */}
-      {activeTab === 'productos' ? (
-        <>
-          {loading ? (
+        {/* Contenido Principal según el Tab activo */}
+        {activeTab === 'productos' && (
+          <>
+            {loading ? (
             <div className="py-16 flex flex-col items-center justify-center">
               <RefreshCw className="w-10 h-10 animate-spin text-emerald-605" />
               <p className="mt-4 text-stone-500 text-sm font-semibold">Cargando inventario...</p>
@@ -595,11 +595,13 @@ export default function AdminDashboard() {
               </div>
             </div>
           )}
-        </>
-      ) : (
-        /* TAB USUARIOS */
-        <>
-          {loadingUsuarios ? (
+          </>
+        )}
+  
+        {/* TAB USUARIOS */}
+        {activeTab === 'usuarios' && (
+          <>
+            {loadingUsuarios ? (
             <div className="py-16 flex flex-col items-center justify-center">
               <RefreshCw className="w-10 h-10 animate-spin text-emerald-605" />
               <p className="mt-4 text-stone-500 text-sm font-semibold">Cargando usuarios...</p>
@@ -673,10 +675,10 @@ export default function AdminDashboard() {
               </div>
             </div>
           )}
-        </>
-      )}
-
-      {/* TABS CONTENT: PEDIDOS */}
+          </>
+        )}
+  
+        {/* TABS CONTENT: PEDIDOS */}
       {activeTab === 'pedidos' && (
         <div className="bg-white border border-stone-200 rounded-3xl shadow-sm overflow-hidden mb-12 animate-fade-in-up">
           <div className="px-6 py-4 border-b border-stone-200 flex justify-between items-center bg-stone-50">
@@ -719,24 +721,24 @@ export default function AdminDashboard() {
                 </thead>
                 <tbody className="divide-y divide-stone-150">
                   {pedidos.map((ped) => (
-                    <tr key={ped.ID} className="hover:bg-stone-50/50 transition-colors">
-                      <td className="p-4 font-mono font-bold text-stone-850">#{ped.ID}</td>
+                    <tr key={ped.id} className="hover:bg-stone-50/50 transition-colors">
+                      <td className="p-4 font-mono font-bold text-stone-850">#{ped.id}</td>
                       <td className="p-4">
-                        <p className="font-bold text-stone-850">{ped.CLIENTE}</p>
-                        <p className="text-stone-500 text-[10px]">{ped.CORREO}</p>
+                        <p className="font-bold text-stone-850">{ped.cliente}</p>
+                        <p className="text-stone-500 text-[10px]">{ped.correo}</p>
                       </td>
                       <td className="p-4 text-stone-600 font-mono">
-                        {new Date(ped.FECHA).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute:'2-digit' })}
+                        {new Date(ped.fecha).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute:'2-digit' })}
                       </td>
-                      <td className="p-4 font-extrabold text-stone-850">${Number(ped.TOTAL).toFixed(2)}</td>
+                      <td className="p-4 font-extrabold text-stone-850">${Number(ped.total).toFixed(2)}</td>
                       <td className="p-4 text-center">
                         <select
-                          value={ped.ESTADO || 'Pendiente'}
-                          onChange={(e) => handleActualizarEstadoPedido(ped.ID, e.target.value)}
+                          value={ped.estado || 'Pendiente'}
+                          onChange={(e) => handleActualizarEstadoPedido(ped.id, e.target.value)}
                           className={`px-2.5 py-1.5 rounded-lg font-bold uppercase tracking-wider text-[10px] cursor-pointer outline-none border transition-colors ${
-                            ped.ESTADO?.toLowerCase() === 'entregado' || ped.ESTADO === 'COMPLETADO' || ped.ESTADO === 'PAGADO'
+                            ped.estado?.toLowerCase() === 'entregado' || ped.estado === 'COMPLETADO' || ped.estado === 'PAGADO'
                               ? 'bg-emerald-50 text-emerald-700 border-emerald-200 focus:ring-2 focus:ring-emerald-500'
-                              : ped.ESTADO?.toLowerCase() === 'enviado'
+                              : ped.estado?.toLowerCase() === 'enviado'
                                 ? 'bg-blue-50 text-blue-700 border-blue-200 focus:ring-2 focus:ring-blue-500'
                                 : 'bg-yellow-50 text-yellow-700 border-yellow-200 focus:ring-2 focus:ring-yellow-500'
                           }`}

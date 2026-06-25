@@ -12,7 +12,7 @@ export default function Checkout() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [pedidoRealizado, setPedidoRealizado] = useState(false);
-  const [pedidoId, setPedidoId] = useState(null);
+  const [totalFacturado, setTotalFacturado] = useState(null);
 
   // Estados del Formulario de Tarjeta (Sin validaciones)
   const [numeroTarjeta, setNumeroTarjeta] = useState('');
@@ -23,8 +23,10 @@ export default function Checkout() {
   
   // Datos de Facturación y Envío
   const [cedula, setCedula] = useState('');
+  const [cedulaError, setCedulaError] = useState('');
   const [nombreFacturacion, setNombreFacturacion] = useState('');
   const [telefono, setTelefono] = useState('');
+  const [telefonoError, setTelefonoError] = useState('');
   const [direccionEnvio, setDireccionEnvio] = useState('');
 
   // Estados para Pago Ecuatoriano
@@ -71,14 +73,59 @@ export default function Checkout() {
     setCvv(input);
   };
 
+  // Validación estricta de Cédula Ecuatoriana
+  const validarCedula = (val) => {
+    if (!val) return false;
+    if (typeof val !== 'string' || val.length !== 10 || !/^\d+$/.test(val)) return false;
+    const digito_region = parseInt(val.substring(0, 2), 10);
+    if (digito_region < 1 || digito_region > 24) return false;
+    
+    const ultimo_digito = parseInt(val.substring(9, 10), 10);
+    let suma = 0;
+    for (let i = 0; i < 9; i++) {
+      let digito = parseInt(val.charAt(i), 10);
+      if (i % 2 === 0) {
+        digito *= 2;
+        if (digito > 9) digito -= 9;
+      }
+      suma += digito;
+    }
+    const decena = Math.ceil(suma / 10) * 10;
+    let digito_validador = decena - suma;
+    if (digito_validador === 10) digito_validador = 0;
+    
+    return digito_validador === ultimo_digito;
+  };
+
+  // Validar en tiempo real
+  const handleCedulaChange = (e) => {
+    const val = e.target.value.replace(/\D/g, '').substring(0, 10);
+    setCedula(val);
+  };
+
+  const handleTelefonoChange = (e) => {
+    // Solo permitir números y máximo 10 caracteres
+    const val = e.target.value.replace(/\D/g, '').substring(0, 10);
+    setTelefono(val);
+    if (val.length > 0 && val.length < 10) {
+      setTelefonoError('El celular debe tener exactamente 10 dígitos.');
+    } else {
+      setTelefonoError('');
+    }
+  };
+
   // Flujo directo de Procesar Pago (SIMULACIÓN PURA)
   const handlePagarSubmit = async (e) => {
     e.preventDefault(); // Evitamos que el form recargue la página
     setError('');
-    setLoading(true);
+  
 
-    // CERO VALIDACIONES ESTRICTAS
-    // Ignoramos longitud, CVV correcto, regex, etc.
+    if (telefono.length !== 10) {
+      setError('El celular de contacto debe tener 10 dígitos.');
+      return;
+    }
+
+    setLoading(true);
 
     try {
       // 1. Simular procesamiento de 2 segundos para dar realismo al click
@@ -93,13 +140,13 @@ export default function Checkout() {
       });
 
       // 3. Limpiar carrito y mostrar éxito
-      setPedidoId(result.pedidoId || Math.floor(Math.random() * 90000));
+      setTotalFacturado(result.total_facturado);
       setPedidoRealizado(true);
       clearCart();
 
     } catch (err) {
       console.error(err);
-      setError(err.message || 'Error al procesar el pago simulación.');
+      setError(err.message || 'Error al procesar el pago.');
     } finally {
       setLoading(false);
     }
@@ -130,7 +177,7 @@ export default function Checkout() {
           </div>
           <h2 className="text-2xl font-extrabold text-stone-850 mb-2">¡Simulación de Pago Completada con Éxito!</h2>
           <p className="text-stone-500 mb-6 text-sm leading-relaxed">
-            Tu compra de prueba ha sido procesada directamente. El pedido se registró en tu base de datos bajo el ID <strong className="text-stone-850">#{pedidoId}</strong> con estado <span className="text-emerald-605 font-bold">PAGADO</span>.
+            Tu compra de prueba ha sido procesada directamente. El pedido se registró en tu base de datos y la facturación total calculada por Oracle es de <strong className="text-emerald-700 font-bold">${parseFloat(totalFacturado).toFixed(2)}</strong>.
           </p>
           <div className="space-y-3 w-full">
             <button
@@ -212,15 +259,16 @@ export default function Checkout() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-bold text-stone-500 uppercase mb-2">Cédula o RUC <span className="text-emerald-600">*</span></label>
-                <input
-                  type="text"
-                  placeholder="Ej. 1712345678"
-                  value={cedula}
-                  onChange={(e) => setCedula(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl border border-stone-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm bg-white"
-                  required
-                />
-              </div>
+                  <input
+                    type="text"
+                    placeholder="Ej. 1712345678"
+                    value={cedula}
+                    onChange={handleCedulaChange}
+                    className={`w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 text-sm bg-white ${cedulaError ? 'border-red-400 focus:ring-red-500' : 'border-stone-200 focus:ring-emerald-500'}`}
+                    required
+                  />
+                  {cedulaError && <p className="text-xs font-bold text-red-500 mt-1">{cedulaError}</p>}
+                </div>
               <div>
                 <label className="block text-xs font-bold text-stone-500 uppercase mb-2">Nombre o Razón Social <span className="text-emerald-600">*</span></label>
                 <input
@@ -235,17 +283,19 @@ export default function Checkout() {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-bold text-stone-500 uppercase mb-2">Teléfono de Contacto <span className="text-emerald-600">*</span></label>
-                <input
-                  type="text"
-                  placeholder="Ej. 0991234567"
-                  value={telefono}
-                  onChange={(e) => setTelefono(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl border border-stone-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm bg-white"
-                  required
-                />
-              </div>
+                <div>
+                  <label className="block text-xs font-bold text-stone-500 uppercase mb-2">Celular de Contacto <span className="text-emerald-600">*</span></label>
+                  <input
+                    type="text"
+                    placeholder="Ej. 0991234567"
+                    value={telefono}
+                    onChange={handleTelefonoChange}
+                    maxLength="10"
+                    className={`w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 text-sm bg-white ${telefonoError ? 'border-red-400 focus:ring-red-500' : 'border-stone-200 focus:ring-emerald-500'}`}
+                    required
+                  />
+                  {telefonoError && <p className="text-xs font-bold text-red-500 mt-1">{telefonoError}</p>}
+                </div>
               <div>
                 <label className="block text-xs font-bold text-stone-500 uppercase mb-2">Dirección de Envío <span className="text-emerald-600">*</span></label>
                 <input

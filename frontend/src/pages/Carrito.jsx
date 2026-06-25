@@ -4,7 +4,7 @@ import { useCart, useAuth } from '../context/AppContext';
 import { Trash2, Plus, Minus, CheckCircle } from 'lucide-react';
 
 export default function Carrito() {
-  const { cart, removeFromCart, updateQuantity, getCartTotal, checkout } = useCart();
+  const { cart, isCartLoading, removeFromCart, updateQuantity, getCartTotal, checkout } = useCart();
   const { user } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
@@ -21,7 +21,8 @@ export default function Carrito() {
   };
 
   const getProductImage = (nombre) => {
-    const n = nombre.toLowerCase();
+    if (!nombre) return 'https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&q=80&w=400';
+    const n = String(nombre).toLowerCase();
     if (n.includes('miel')) return 'https://images.unsplash.com/photo-1587049352846-4a222e784d38?auto=format&fit=crop&q=80&w=400';
     if (n.includes('granola')) return 'https://images.unsplash.com/photo-1517881917430-e70dfb3610aa?auto=format&fit=crop&q=80&w=400';
     if (n.includes('café') || n.includes('cafe')) return 'https://images.unsplash.com/photo-1447933601403-0c6688de566e?auto=format&fit=crop&q=80&w=400';
@@ -51,10 +52,19 @@ export default function Carrito() {
       <div className="max-w-4xl mx-auto px-4 py-12">
         <h1 className="text-3xl font-extrabold text-stone-850 mb-8">Tu Carrito de Compras</h1>
         <div className="bg-white p-6 rounded-3xl border border-stone-100 shadow-sm text-center py-16">
-          <p className="text-stone-500 text-lg mb-6">Tu carrito está vacío en este momento.</p>
-          <Link to="/catalogo" className="inline-block bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-8 rounded-xl transition-colors duration-200">
-            Explorar Productos
-          </Link>
+          {isCartLoading ? (
+             <div className="flex flex-col items-center justify-center">
+               <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-emerald-600 mb-4"></div>
+               <p className="text-stone-500 text-sm">Cargando carrito desde Oracle...</p>
+             </div>
+          ) : (
+            <>
+              <p className="text-stone-500 text-lg mb-6">Tu carrito está vacío en este momento.</p>
+              <Link to="/catalogo" className="inline-block bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-8 rounded-xl transition-colors duration-200">
+                Explorar Productos
+              </Link>
+            </>
+          )}
         </div>
       </div>
     );
@@ -77,13 +87,13 @@ export default function Carrito() {
             <div key={item.id} className="bg-white p-4 rounded-2xl border border-stone-100 shadow-sm flex items-center justify-between">
               <div className="flex items-center space-x-4">
                 <img 
-                  src={getProductImage(item.nombre)} 
-                  alt={item.nombre}
+                  src={item.imagen_url || getProductImage(item.nombre)} 
+                  alt={item.nombre || 'Producto'}
                   className="w-16 h-16 object-cover rounded-xl"
                 />
                 <div>
-                  <h3 className="font-bold text-stone-850">{item.nombre}</h3>
-                  <p className="text-sm text-stone-500">${item.precio.toFixed(2)} c/u</p>
+                  <h3 className="font-bold text-stone-850">{item.nombre || 'Producto sin nombre'}</h3>
+                  <p className="text-sm text-stone-500">${(item.precio || 0).toFixed(2)} c/u</p>
                 </div>
               </div>
               

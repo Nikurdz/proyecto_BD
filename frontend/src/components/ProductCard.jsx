@@ -127,9 +127,10 @@ export default function ProductCard({ producto, onAddToCart, onViewDetails }) {
               precio: producto.precio,
               stock: producto.stock
             })}
-            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl text-xs shadow-sm hover:shadow transition-all text-center cursor-pointer border-none"
+            disabled={producto.stock <= 0}
+            className={`w-full font-bold py-2.5 rounded-xl text-xs shadow-sm transition-all text-center border-none ${producto.stock > 0 ? 'bg-emerald-600 hover:bg-emerald-700 text-white hover:shadow cursor-pointer' : 'bg-stone-300 text-stone-500 cursor-not-allowed'}`}
           >
-            Agregar al carrito
+            {producto.stock > 0 ? 'Agregar al carrito' : 'Agotado'}
           </button>
         </div>
       </div>

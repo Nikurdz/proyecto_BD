@@ -60,3 +60,40 @@ BEGIN
     END IF;
 END;
 /
+
+-- 6. Disparador TIB_PAGOS (Reparado) para validar la existencia del pedido en GYQ
+CREATE OR REPLACE TRIGGER TIB_PAGOS 
+BEFORE INSERT ON PAGOS 
+FOR EACH ROW
+DECLARE
+    integrity_error  EXCEPTION;
+    errno            INTEGER;
+    errmsg           VARCHAR2(200);
+    dummy            INTEGER;
+    found            BOOLEAN;
+    
+    -- El cursor ahora busca de forma remota en Guayas con el enlace activo
+    CURSOR cpk1_pagos(var_ped_numero NUMBER) IS
+       SELECT 1
+       FROM   adminprod.PEDIDOCLIENTE@link_contingencia_gyq
+       WHERE  PED_NUMERO = var_ped_numero
+        AND   var_ped_numero IS NOT NULL;
+BEGIN
+    -- El padre "PEDIDOCLIENTE" debe existir en Guayas al ingresar un hijo en "PAGOS" (Quito)
+    IF :NEW.PED_NUMERO IS NOT NULL THEN
+       OPEN  cpk1_pagos(:NEW.PED_NUMERO);
+       FETCH cpk1_pagos INTO dummy;
+       found := cpk1_pagos%FOUND;
+       CLOSE cpk1_pagos;
+       
+       IF NOT found THEN
+          errno  := -20002;
+          errmsg := 'Violación de Integridad: El pedido no existe en Guayas. No se puede registrar el pago.';
+          RAISE integrity_error;
+       END IF;
+    END IF;
+EXCEPTION
+    WHEN integrity_error THEN
+       RAISE_APPLICATION_ERROR(errno, errmsg);
+END;
+/

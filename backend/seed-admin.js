@@ -14,7 +14,7 @@ async function run() {
     console.log('Verificando usuario administrador...');
 
     // Verificar si el admin ya existe en la nueva tabla CLIENTE
-    const sqlCheck = `SELECT CLI_CED_RUC FROM CLIENTE@link_contingencia_gyq WHERE UPPER(CLI_CORREO) = :correo`;
+    const sqlCheck = `SELECT CLI_CI_RUC FROM CLIENTE WHERE UPPER(CLI_CORREO) = :correo`;
     const resultCheck = await connection.execute(
       sqlCheck, 
       { correo: 'ADMIN@NATURART.COM' },
@@ -27,7 +27,7 @@ async function run() {
     if (resultCheck.rows && resultCheck.rows.length > 0) {
       console.log('El usuario administrador ya existe. Actualizando contraseña y rol para asegurar acceso...');
       const sqlUpdate = `
-        UPDATE CLIENTE@link_contingencia_gyq 
+        UPDATE CLIENTE 
         SET CLI_PASSWORD = :password, CLI_ROL = 'admin', CLI_NOMBRE = 'Administrador'
         WHERE UPPER(CLI_CORREO) = :correo
       `;
@@ -38,7 +38,7 @@ async function run() {
     }
 
     const sqlInsert = `
-      INSERT INTO CLIENTE@link_contingencia_gyq (CLI_CED_RUC, CLI_NOMBRE, CLI_CORREO, CLI_PASSWORD, CLI_ROL)
+      INSERT INTO CLIENTE (CLI_CI_RUC, CLI_NOMBRE, CLI_CORREO, CLI_PASSWORD, CLI_ROL)
       VALUES (:cedula, :nombre, :correo, :password, :rol)
     `;
 

@@ -7,6 +7,7 @@ import { initializeDatabase, executeQuery, isDbConnected } from './db.js';
 import authRoutes from './routes/authRoutes.js';
 import productRoutes from './routes/productRoutes.js';
 import orderRoutes from './routes/orderRoutes.js';
+import carritoRoutes from './routes/carritoRoutes.js';
 import uploadRoutes from './routes/uploadRoutes.js';
 import analyticsRoutes from './routes/analyticsRoutes.js';
 import { obtenerPedidos } from './controllers/orderController.js';
@@ -77,6 +78,7 @@ app.get('/api/test-db', async (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/productos', productRoutes);
 app.use('/api/pedidos', orderRoutes);
+app.use('/api/carrito', carritoRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/admin/reportes', analyticsRoutes);
 app.get('/api/mis-pedidos', verificarToken, obtenerPedidos);

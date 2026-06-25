@@ -59,8 +59,10 @@ export async function obtenerProductos(req, res) {
 
     // 2. Obtener los productos paginados
     const sql = `
-      SELECT p.id, p.titulo, p.descripcion, p.precio, p.stock, p.imagen_url, p.fecha_creacion, p.categoria, p.descuento_pct
+      SELECT p.id, p.titulo, p.descripcion, p.precio, p.imagen_url, p.fecha_creacion, p.categoria, p.descuento_pct,
+             b.PRB_EXISTENCIA AS bodega_stock
       FROM vw_productos_qyt p
+      LEFT JOIN PROD_BODGA b ON p.id = b.PRD_CODIGO AND b.BOD_CODIGO = 'SUC1'
       ${whereClauseStr}
       ORDER BY p.id ASC
       OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY
@@ -88,7 +90,7 @@ export async function obtenerProductos(req, res) {
         precio: precioFinal,
         precioOriginal: tieneDescuento ? precioOriginal : null,
         descuentoPorcentaje: descuentoPorcentaje,
-        stock: Number(row.STOCK),
+        stock: Number(row.BODEGA_STOCK || 0),
         imagen_url: formatImageUrl(req, row.IMAGEN_URL),
         categoria: row.CATEGORIA,
         fecha_creacion: row.FECHA_CREACION
@@ -133,8 +135,9 @@ export async function crearProducto(req, res) {
     const prdCodigo = 'P' + Math.floor(100000000 + Math.random() * 900000000).toString();
 
     const sql = `
-      INSERT INTO PRODUCTO (PRD_CODIGO, PRD_NOMBRE, PRD_DESCRIPCION, PRD_PRECIO, PRD_EXISTENCIA, PRD_IMAGEN_URL, PRD_CATEGORIA, PRD_DESCUENTO_PCT)
-      VALUES (:prdCodigo, :titulo, :descripcion_detallada, :precio, :stock, :imagen_url, :categoria, :descuentoPct)
+      BEGIN
+        SP_CREAR_PRODUCTO(:prdCodigo, :titulo, :descripcion_detallada, :precio, :stock, :imagen_url, :categoria, :descuentoPct);
+      END;
     `;
 
     const binds = {
@@ -185,17 +188,17 @@ export async function actualizarProducto(req, res) {
   try {
     connection = await getConnection();
 
-    // NOTA: Sumamos stockAgregar a la existencia actual, no la reemplazamos
+    // Obtener el stock actual para sumarle stockAgregar
+    const sqlStock = `SELECT NVL(PRD_EXISTENCIA, 0) AS CURRENT_STOCK FROM PRODUCTO WHERE PRD_CODIGO = :id`;
+    // Add outFormat so we can access CURRENT_STOCK by name
+    const resultStock = await connection.execute(sqlStock, { id }, { outFormat: 4002 }); // 4002 is OUT_FORMAT_OBJECT
+    const currentStock = resultStock.rows && resultStock.rows.length > 0 ? Number(resultStock.rows[0].CURRENT_STOCK) : 0;
+    const nuevoStock = currentStock + parseInt(stockAgregar || 0);
+
     const sql = `
-      UPDATE PRODUCTO
-      SET PRD_NOMBRE = :titulo,
-          PRD_DESCRIPCION = :descripcion_detallada,
-          PRD_PRECIO = :precio,
-          PRD_IMAGEN_URL = :imagen_url,
-          PRD_CATEGORIA = :categoria,
-          PRD_DESCUENTO_PCT = :descuentoPct,
-          PRD_EXISTENCIA = PRD_EXISTENCIA + :stockAgregar
-      WHERE PRD_CODIGO = :id
+      BEGIN
+        SP_ACTUALIZAR_PRODUCTO(:id, :titulo, :descripcion_detallada, :precio, :nuevoStock, :imagen_url, :categoria, :descuentoPct);
+      END;
     `;
 
     const binds = {
@@ -206,15 +209,11 @@ export async function actualizarProducto(req, res) {
       imagen_url: imagen_url || '',
       categoria,
       descuentoPct: parseFloat(descuentoPct || 0),
-      stockAgregar: parseInt(stockAgregar || 0)
+      nuevoStock: nuevoStock
     };
 
     const result = await connection.execute(sql, binds);
 
-    if (result.rowsAffected === 0) {
-      await connection.rollback();
-      return res.status(404).json({ error: 'Producto no encontrado.' });
-    }
 
     await connection.commit();
 
@@ -239,15 +238,14 @@ export async function eliminarProducto(req, res) {
   try {
     connection = await getConnection();
 
-    const sql = `DELETE FROM PRODUCTO WHERE PRD_CODIGO = :id`;
+    const sql = `
+      BEGIN
+        SP_ELIMINAR_PRODUCTO(:id);
+      END;
+    `;
     const binds = { id: id };
 
-    const result = await connection.execute(sql, binds);
-
-    if (result.rowsAffected === 0) {
-      await connection.rollback();
-      return res.status(404).json({ error: 'Producto no encontrado.' });
-    }
+    await connection.execute(sql, binds);
 
     await connection.commit();
 
@@ -304,14 +302,11 @@ export async function agregarFavorito(req, res) {
   try {
     connection = await getConnection();
     
-    const checkSql = `SELECT 1 FROM FAVORITOS WHERE cli_ced_ruc = :cliCedRuc AND prd_codigo = :prdCodigo`;
-    const checkResult = await connection.execute(checkSql, { cliCedRuc, prdCodigo });
-    
-    if (checkResult.rows && checkResult.rows.length > 0) {
-      return res.status(400).json({ success: false, error: 'El producto ya está en favoritos.' });
-    }
-
-    const insertSql = `INSERT INTO FAVORITOS (cli_ced_ruc, prd_codigo) VALUES (:cliCedRuc, :prdCodigo)`;
+    const insertSql = `
+      BEGIN
+        SP_AGREGAR_FAVORITO(:cliCedRuc, :prdCodigo);
+      END;
+    `;
     await connection.execute(insertSql, { cliCedRuc, prdCodigo });
     await connection.commit();
 
@@ -338,13 +333,12 @@ export async function eliminarFavorito(req, res) {
   try {
     connection = await getConnection();
     
-    const sql = `DELETE FROM FAVORITOS WHERE cli_ced_ruc = :cliCedRuc AND prd_codigo = :prdCodigo`;
-    const result = await connection.execute(sql, { cliCedRuc, prdCodigo });
-    
-    if (result.rowsAffected === 0) {
-      await connection.rollback();
-      return res.status(404).json({ success: false, error: 'El producto no estaba en tus favoritos.' });
-    }
+    const sql = `
+      BEGIN
+        SP_ELIMINAR_FAVORITO(:cliCedRuc, :prdCodigo);
+      END;
+    `;
+    await connection.execute(sql, { cliCedRuc, prdCodigo });
 
     await connection.commit();
 
@@ -394,8 +388,16 @@ export async function crearCategoria(req, res) {
   try {
     connection = await getConnection();
 
-    const sql = `INSERT INTO CATEGORIAS (NOMBRE) VALUES (:nombre)`;
-    await connection.execute(sql, { nombre });
+    // Generar un código rápido para CAT_CODIGO que es requerido en el nuevo modelo
+    const randomId = Math.floor(Math.random() * 999).toString().padStart(3, '0');
+    const catCodigo = `C${randomId}`;
+
+    const sql = `
+      BEGIN
+        SP_CREAR_CATEGORIA(:nombre, :catCodigo);
+      END;
+    `;
+    await connection.execute(sql, { nombre, catCodigo });
     await connection.commit();
 
     return res.status(201).json({ success: true, message: 'Categoría creada exitosamente.', categoria: { nombre } });

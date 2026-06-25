@@ -1,0 +1,13 @@
+CREATE OR REPLACE VIEW vw_productos_qyt AS
+SELECT 
+    P.PRD_CODIGO AS id, 
+    P.PRD_NOMBRE AS titulo, 
+    P.PRD_DESCRIPCION AS descripcion, 
+    P.PRD_PRECIO AS precio, 
+    NVL(B.PRB_EXISTENCIA, 0) AS stock, 
+    P.PRD_IMAGEN_URL AS imagen_url, 
+    P.FECHA_CREACION AS fecha_creacion, 
+    P.PRD_CATEGORIA AS categoria, 
+    P.PRD_DESCUENTO_PCT AS descuento_pct
+FROM PRODUCTO P
+LEFT JOIN PROD_BODGA B ON P.PRD_CODIGO = B.PRD_CODIGO AND B.BOD_CODIGO = 'BWEB1';

@@ -138,8 +138,8 @@ export async function verificarCorreo(req, res) {
     
     // Buscar usuario por token y obtener todos sus datos para el JWT
     const sqlSelect = `
-      SELECT CLI_CED_RUC, CLI_NOMBRE, CLI_CORREO, CLI_ROL 
-      FROM vw_clientes_gyq 
+      SELECT CLI_CI_RUC, CLI_NOMBRE, CLI_CORREO, CLI_ROL 
+      FROM CLIENTE 
       WHERE TOKEN_VERIFICACION = :token
     `;
     const result = await connection.execute(sqlSelect, { token });
@@ -162,7 +162,7 @@ export async function verificarCorreo(req, res) {
     // AUTO-LOGIN: Generar JWT exactamente igual que en iniciarSesion
     const jwtToken = jwt.sign(
       { 
-        id: usuario.CLI_CED_RUC, 
+        id: usuario.CLI_CI_RUC, 
         nombre: usuario.CLI_NOMBRE, 
         email: usuario.CLI_CORREO, 
         rol: usuario.CLI_ROL 
@@ -176,7 +176,7 @@ export async function verificarCorreo(req, res) {
       mensaje: "Verificado",
       token: jwtToken,
       usuario: {
-        id: usuario.CLI_CED_RUC,
+        id: usuario.CLI_CI_RUC,
         nombre: usuario.CLI_NOMBRE,
         email: usuario.CLI_CORREO,
         rol: usuario.CLI_ROL
@@ -201,8 +201,8 @@ export async function iniciarSesion(req, res) {
 
   try {
     const sql = `
-      SELECT CLI_CED_RUC, CLI_NOMBRE, CLI_CORREO, CLI_PASSWORD, CLI_ROL, VERIFICADO
-      FROM vw_clientes_gyq
+      SELECT CLI_CI_RUC, CLI_NOMBRE, CLI_CORREO, CLI_PASSWORD, CLI_ROL, VERIFICADO
+      FROM CLIENTE
       WHERE UPPER(CLI_CORREO) = UPPER(:email)
     `;
 
@@ -225,7 +225,7 @@ export async function iniciarSesion(req, res) {
     }
 
     const token = jwt.sign(
-      { id: usuario.CLI_CED_RUC, nombre: usuario.CLI_NOMBRE, email: usuario.CLI_CORREO, rol: usuario.CLI_ROL },
+      { id: usuario.CLI_CI_RUC, nombre: usuario.CLI_NOMBRE, email: usuario.CLI_CORREO, rol: usuario.CLI_ROL },
       process.env.JWT_SECRET,
       { expiresIn: '24h' }
     );
@@ -234,7 +234,7 @@ export async function iniciarSesion(req, res) {
       message: 'Inicio de sesión exitoso.',
       token,
       usuario: {
-        id: usuario.CLI_CED_RUC,
+        id: usuario.CLI_CI_RUC,
         nombre: usuario.CLI_NOMBRE,
         email: usuario.CLI_CORREO,
         rol: usuario.CLI_ROL
@@ -249,8 +249,8 @@ export async function iniciarSesion(req, res) {
 export async function listarUsuarios(req, res) {
   try {
     const sql = `
-      SELECT CLI_CED_RUC AS "id", CLI_NOMBRE AS "nombre", CLI_CORREO AS "correo", CLI_ROL AS "rol", VERIFICADO AS "verificado"
-      FROM vw_clientes_gyq
+      SELECT CLI_CI_RUC AS "id", CLI_NOMBRE AS "nombre", CLI_CORREO AS "correo", CLI_ROL AS "rol", VERIFICADO AS "verificado"
+      FROM CLIENTE
       ORDER BY CLI_NOMBRE ASC
     `;
     const result = await executeQuery(sql, {});
@@ -272,7 +272,7 @@ export async function reenviarVerificacionPublico(req, res) {
     connection = await getConnection();
     
     // Buscar usuario y estado de verificación
-    const sqlSelect = `SELECT CLI_CED_RUC, CLI_NOMBRE, VERIFICADO FROM vw_clientes_gyq WHERE UPPER(CLI_CORREO) = UPPER(:email)`;
+    const sqlSelect = `SELECT CLI_CI_RUC, CLI_NOMBRE, VERIFICADO FROM CLIENTE WHERE UPPER(CLI_CORREO) = UPPER(:email)`;
     const result = await connection.execute(sqlSelect, { email: String(email).trim() }, { outFormat: oracledb.OUT_FORMAT_OBJECT });
     
     if (!result.rows || result.rows.length === 0) {
@@ -288,10 +288,10 @@ export async function reenviarVerificacionPublico(req, res) {
     const tokenVerificacion = crypto.randomBytes(32).toString('hex');
     const sqlUpdate = `
       BEGIN
-        UPDATE CLIENTE@link_contingencia_gyq SET TOKEN_VERIFICACION = :token WHERE CLI_CED_RUC = :id;
+        SP_ACTUALIZAR_TOKEN_CLIENTE(:id, :token);
       END;
     `;
-    await connection.execute(sqlUpdate, { token: String(tokenVerificacion), id: String(usuario.CLI_CED_RUC) });
+    await connection.execute(sqlUpdate, { token: String(tokenVerificacion), id: String(usuario.CLI_CI_RUC) });
     await connection.commit();
 
     // Reenviar correo con Nodemailer (Gmail)
@@ -377,7 +377,7 @@ export async function reenviarVerificacionAdmin(req, res) {
   try {
     connection = await getConnection();
     
-    const sqlSelect = `SELECT CLI_CED_RUC, CLI_NOMBRE, CLI_CORREO, VERIFICADO FROM vw_clientes_gyq WHERE CLI_CED_RUC = :id`;
+    const sqlSelect = `SELECT CLI_CI_RUC, CLI_NOMBRE, CLI_CORREO, VERIFICADO FROM CLIENTE WHERE CLI_CI_RUC = :id`;
     const result = await connection.execute(sqlSelect, { id: String(id) }, { outFormat: oracledb.OUT_FORMAT_OBJECT });
     
     if (!result.rows || result.rows.length === 0) {
@@ -392,7 +392,7 @@ export async function reenviarVerificacionAdmin(req, res) {
     const tokenVerificacion = crypto.randomBytes(32).toString('hex');
     const sqlUpdate = `
       BEGIN
-        UPDATE CLIENTE@link_contingencia_gyq SET TOKEN_VERIFICACION = :token WHERE CLI_CED_RUC = :id;
+        SP_ACTUALIZAR_TOKEN_CLIENTE(:id, :token);
       END;
     `;
     await connection.execute(sqlUpdate, { token: tokenVerificacion, id: String(id) });
@@ -476,15 +476,10 @@ export async function cambiarRolUsuario(req, res) {
     
     const sqlUpdate = `
       BEGIN
-        UPDATE CLIENTE@link_contingencia_gyq SET CLI_ROL = :rol WHERE CLI_CED_RUC = :id;
+        SP_ACTUALIZAR_ROL_CLIENTE(:id, :rol);
       END;
     `;
-    const result = await connection.execute(sqlUpdate, { rol, id: String(id) });
-    
-    if (result.rowsAffected === 0) {
-      await connection.rollback();
-      return res.status(404).json({ error: 'Usuario no encontrado.' });
-    }
+    await connection.execute(sqlUpdate, { rol, id: String(id) });
     
     await connection.commit();
     return res.json({ message: `Rol actualizado a '${rol}' exitosamente.` });

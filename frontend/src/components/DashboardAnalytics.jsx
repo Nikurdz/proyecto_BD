@@ -1,40 +1,68 @@
 import React, { useState, useEffect } from 'react';
+import { RefreshCw } from 'lucide-react';
 
 const DashboardAnalytics = () => {
   const [periodo, setPeriodo] = useState('anio_actual'); // 'historico' | 'anio_actual'
   const [datos, setDatos] = useState(null);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
+  const [syncing, setSyncing] = useState(false);
+  const [syncMsg, setSyncMsg] = useState(null);
+
+  const fetchAnaliticas = async () => {
+    setCargando(true);
+    setError(null);
+    try {
+      const token = localStorage.getItem('token');
+      const respuesta = await fetch(`http://localhost:5000/api/admin/reportes/ventas?periodo=${periodo}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!respuesta.ok) {
+        throw new Error('No se pudieron obtener las métricas del Data Warehouse.');
+      }
+
+      const json = await respuesta.json();
+      setDatos(json.data);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setCargando(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchAnaliticas = async () => {
-      setCargando(true);
-      setError(null);
-      try {
-        const token = localStorage.getItem('token');
-        const respuesta = await fetch(`http://localhost:5000/api/admin/reportes/ventas?periodo=${periodo}`, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        });
-
-        if (!respuesta.ok) {
-          throw new Error('No se pudieron obtener las métricas del Data Warehouse.');
-        }
-
-        const json = await respuesta.json();
-        setDatos(json.data);
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setCargando(false);
-      }
-    };
-
     fetchAnaliticas();
   }, [periodo]);
+
+  const handleSync = async () => {
+    setSyncing(true);
+    setSyncMsg(null);
+    try {
+      const token = localStorage.getItem('token');
+      const respuesta = await fetch(`http://localhost:5000/api/admin/reportes/sync`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const data = await respuesta.json();
+      if (!respuesta.ok) throw new Error(data.error || 'Error al sincronizar DW');
+      setSyncMsg(data.message);
+      // Reload metrics after successful sync
+      fetchAnaliticas();
+      // Clear success msg after 4s
+      setTimeout(() => setSyncMsg(null), 4000);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   // Cálculos de KPIs generales a partir del arreglo de ventasPorMes
   const totalIngresos = datos?.ventasPorMes?.reduce((acc, curr) => acc + curr.totalIngresos, 0) || 0;
@@ -51,9 +79,20 @@ const DashboardAnalytics = () => {
         <div>
           <h2 className="text-3xl font-bold tracking-tight text-slate-800">Analítica DW</h2>
           <p className="text-sm text-slate-500 mt-1">Métricas procesadas desde el Data Warehouse (OLAP)</p>
+          {syncMsg && <p className="text-xs text-emerald-600 font-bold mt-2 bg-emerald-50 inline-block px-2 py-1 rounded">{syncMsg}</p>}
         </div>
 
-        <div className="bg-white p-1 flex rounded-xl border border-slate-200 shadow-sm">
+        <div className="flex items-center gap-4">
+          <button 
+            onClick={handleSync}
+            disabled={syncing}
+            className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-sm hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+          >
+            <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
+            {syncing ? 'Sincronizando...' : 'Sincronizar Datos'}
+          </button>
+          
+          <div className="bg-white p-1 flex rounded-xl border border-slate-200 shadow-sm">
           <button 
             onClick={() => setPeriodo('anio_actual')}
             className={`px-5 py-2 text-sm font-medium rounded-lg transition-all duration-300 ${
@@ -75,6 +114,7 @@ const DashboardAnalytics = () => {
             Histórico Completo
           </button>
         </div>
+      </div>
       </div>
 
       {cargando && (
